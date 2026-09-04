@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MyChat</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f3f6;
+        }
+
+        .app {
+            max-width: 700px;
+            height: 100vh;
+            margin: auto;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #222;
+            color: white;
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h2 {
+            margin: 0;
+        }
+
+        .logout {
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .receiver {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .receiver input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        #messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 14px;
+            word-wrap: break-word;
+        }
+
+        .mine {
+            align-self: flex-start;
+            background: #222;
+            color: white;
+        }
+
+        .theirs {
+            align-self: flex-end;
+            background: #e9e9e9;
+            color: #111;
+        }
+
+        .sender {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 4px;
+        }
+
+        .time {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid #ddd;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+
+        #sendButton {
+            border: none;
+            background: #222;
+            color: white;
+            padding: 0 20px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        #sendButton:hover {
+            background: #444;
+        }
+
+        .info {
+            text-align: center;
+            color: #777;
+            padding: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="header">
+        <h2>💬 MyChat</h2>
+        <a class="logout" href="/logout">خروج</a>
+    </div>
+
+    <div class="receiver">
+        <input
+            id="receiver"
+            type="text"
+            placeholder="آیدی شخص مقابل را وارد کنید..."
+        >
+    </div>
+
+    <div id="messages">
+        <div class="info">
+            آیدی شخص مقابل را وارد کنید.
+        </div>
+    </div>
+
+    <div class="input-area">
+        <input
+            id="messageInput"
+            type="text"
+            placeholder="پیامت رو بنویس..."
+            autocomplete="off"
+        >
+
+        <button id="sendButton">ارسال</button>
+    </div>
+
+</div>
+
+<script>
+    const receiverInput = document.getElementById("receiver");
+    const messageInput = document.getElementById("messageInput");
+    const sendButton = document.getElementById("sendButton");
+    const messagesBox = document.getElementById("messages");
+
+    let currentReceiver = "";
+
+    receiverInput.addEventListener("change", () => {
+        currentReceiver = receiverInput.value.trim();
+
+        if (currentReceiver) {
+            loadMessages();
+        }
+    });
+
+    async function loadMessages() {
+        if (!currentReceiver) return;
+
+        try {
+            const response = await fetch(
+                "/messages/" + encodeURIComponent(currentReceiver)
+            );
+
+            const data = await response.json();
+
+            messagesBox.innerHTML = "";
+
+            if (!data.messages || data.messages.length === 0) {
+                messagesBox.innerHTML = `
+                    <div class="info">
+                        هنوز پیامی وجود ندارد.
+                    </div>
+                `;
+                return;
+            }
+
+            data.messages.forEach(msg => {
+                const div = document.createElement("div");
+
+                div.classList.add("message");
+
+                /*
+                    برای نمایش پیام‌های خودمان و طرف مقابل
+                    فعلاً بر اساس sender تشخیص می‌دهیم.
+                */
+                div.classList.add(
+                    msg.sender === "{{ username }}"
+                        ? "mine"
+                        : "theirs"
+                );
+
+                const sender = document.createElement("div");
+                sender.className = "sender";
+                sender.textContent = msg.sender;
+
+                const text = document.createElement("div");
+                text.textContent = msg.message;
+
+                const time = document.createElement("div");
+                time.className = "time";
+                time.textContent = msg.created_at;
+
+                div.appendChild(sender);
+                div.appendChild(text);
+                div.appendChild(time);
+
+                messagesBox.appendChild(div);
+            });
+
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    async function sendMessage() {
+
+        const message = messageInput.value.trim();
+
+        if (!currentReceiver) {
+            alert("اول آیدی شخص مقابل را وارد کن.");
+            return;
+        }
+
+        if (!message) return;
+
+        try {
+
+            const response = await fetch("/send", {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    receiver: currentReceiver,
+                    message: message
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.error || "خطایی رخ داد.");
+                return;
+            }
+
+            messageInput.value = "";
+
+            loadMessages();
+
+        } catch (error) {
+            alert("ارتباط با سرور برقرار نشد.");
+        }
+    }
+
+    sendButton.addEventListener("click", sendMessage);
+
+    messageInput.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    });
+
+    /*
+        هر 2 ثانیه پیام‌های جدید را بررسی می‌کنیم.
+        در مرحله بعد می‌توانیم این قسمت را با WebSocket
+        جایگزین کنیم تا پیام‌ها کاملاً لحظه‌ای شوند.
+    */
+    setInterval(() => {
+        if (currentReceiver) {
+            loadMessages();
+        }
+    }, 2000);
+</script>
+
+</body>
+</html>
